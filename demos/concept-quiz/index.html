@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>AI × Web3 Week 1 · Concept Quiz</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #131722;
+    --line: #232a3a;
+    --fg: #e4e6eb;
+    --muted: #8b93a7;
+    --ai: #4f8cff;
+    --web3: #b06bff;
+    --ok: #34c47a;
+    --warn: #ffb454;
+    --bad: #ff6b6b;
+    --accent: #ffd86b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(80vw 60vh at 50% -10%, #1a2240 0%, var(--bg) 60%);
+    color: var(--fg);
+    font: 16px/1.55 -apple-system, "SF Pro Text", "Segoe UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    min-height: 100vh;
+    padding: 32px 16px 96px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  header { margin-bottom: 28px; }
+  h1 { font-size: 28px; margin: 0 0 8px; letter-spacing: -0.02em; }
+  h1 .gradient {
+    background: linear-gradient(90deg, var(--ai), var(--web3));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .sub { color: var(--muted); font-size: 14px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+  .pill.ai { color: var(--ai); border-color: rgba(79,140,255,0.4); }
+  .pill.web3 { color: var(--web3); border-color: rgba(176,107,255,0.4); }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 18px 48px -32px rgba(0,0,0,0.8);
+  }
+  .progress {
+    height: 6px; border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .progress > div {
+    height: 100%;
+    background: linear-gradient(90deg, var(--ai), var(--web3));
+    transition: width 0.35s ease;
+  }
+  .qmeta { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .qmeta strong { color: var(--fg); }
+  .question { font-size: 19px; line-height: 1.45; margin-bottom: 18px; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .option {
+    text-align: left;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    color: var(--fg);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    font: inherit;
+    transition: border-color 0.18s, transform 0.06s, background 0.18s;
+  }
+  .option:hover { border-color: rgba(255,255,255,0.18); }
+  .option:active { transform: translateY(1px); }
+  .option.correct { border-color: var(--ok); background: rgba(52,196,122,0.12); }
+  .option.wrong   { border-color: var(--bad); background: rgba(255,107,107,0.10); }
+  .option.disabled { cursor: default; opacity: 0.6; }
+  .option .badge {
+    display: inline-block;
+    width: 22px; height: 22px; line-height: 22px; text-align: center;
+    font-size: 12px; font-weight: 700;
+    border-radius: 6px; margin-right: 10px;
+    background: rgba(255,255,255,0.06); color: var(--muted);
+  }
+  .explain {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: rgba(79,140,255,0.08);
+    border-left: 3px solid var(--ai);
+    font-size: 14px;
+    color: #c8d0e0;
+    display: none;
+  }
+  .explain.show { display: block; }
+  .actions {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 18px;
+  }
+  button.primary {
+    background: linear-gradient(135deg, var(--ai), var(--web3));
+    color: white; border: 0;
+    padding: 10px 18px; border-radius: 999px;
+    font-weight: 600; cursor: pointer;
+    font: inherit;
+  }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .score-pill { font-size: 13px; color: var(--muted); }
+  .score-pill strong { color: var(--accent); }
+  .result {
+    text-align: center;
+    padding: 32px 20px;
+  }
+  .result h2 { font-size: 26px; margin: 8px 0; }
+  .result .big {
+    font-size: 64px; font-weight: 800; letter-spacing: -0.04em;
+    background: linear-gradient(135deg, var(--ai), var(--accent), var(--web3));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin: 12px 0 4px;
+  }
+  .result table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+  .result td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .result td.ok  { color: var(--ok); }
+  .result td.bad { color: var(--bad); }
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 24px; }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="gradient">AI × Web3</span> · Week 1 概念 Quiz</h1>
+    <div class="sub">10 题 · 5 题 AI、5 题 Web3 · 答完一次后可重新开始 · 答错有解释</div>
+  </header>
+
+  <div class="panel" id="quizPanel">
+    <div class="progress"><div id="progressBar" style="width:0%"></div></div>
+    <div class="qmeta">
+      <span class="pill" id="domainPill">AI</span>
+      <span>第 <strong id="qIndex">1</strong> / <strong id="qTotal">10</strong> 题</span>
+      <span style="flex:1"></span>
+      <span class="score-pill">得分 <strong id="score">0</strong></span>
+    </div>
+    <div class="question" id="qText">…</div>
+    <div class="options" id="opts"></div>
+    <div class="explain" id="explain"></div>
+    <div class="actions">
+      <span class="sub" id="hint"></span>
+      <button class="primary" id="nextBtn" disabled>下一题 →</button>
+    </div>
+  </div>
+
+  <footer>
+    一份 AI x Web3 School · Week 1 学习产物 · 内容基于课程概念卡片 ·
+    <a href="https://github.com/beautifulrem/ai-x-web3-school" target="_blank" rel="noopener">repo</a>
+  </footer>
+</div>
+
+<script>
+const QUESTIONS = [
+  {
+    domain: "AI",
+    q: "下面哪一项最准确地描述了 LLM 的输出?",
+    options: [
+      "对一个事实问题做检索后给出答案",
+      "在词表上输出概率分布,按上下文采样下一个 token",
+      "对训练数据建立索引后做 SQL-like 查询",
+      "按规则引擎和决策树给出结果"
+    ],
+    correct: 1,
+    explain: "LLM 不做检索,本质是 f(tokens) → 概率分布,逐 token 采样。把它当数据库查询是最常见的误用。"
+  },
+  {
+    domain: "Web3",
+    q: "下面哪一种「账户」在以太坊里能直接发起 L1 交易(不考虑 ERC-4337 / EIP-7702)?",
+    options: [
+      "合约账户(Contract Account)",
+      "Safe 多签",
+      "EOA(Externally Owned Account)",
+      "Session Key 临时密钥"
+    ],
+    correct: 2,
+    explain: "传统协议下只有 EOA 能签发交易。合约账户和 Safe 都需要 EOA 发起。ERC-4337 之后才让 SCW 通过 EntryPoint 间接发起。"
+  },
+  {
+    domain: "AI",
+    q: "把所有 LLM 应用都叫做 'Agent' 为什么是错的?",
+    options: [
+      "Agent 必须使用 GPU 推理",
+      "Workflow 是预编排的固定流程,路径不由模型动态决定",
+      "Agent 必须用 RAG",
+      "Workflow 只能调用一个模型"
+    ],
+    correct: 1,
+    explain: "Workflow 路径由代码写死,模型只负责单步;Agent 是模型在运行时决定下一步。多数生产系统其实是 Workflow,更稳更便宜。"
+  },
+  {
+    domain: "Web3",
+    q: "下列关于 Gas 的描述,哪个是错的?",
+    options: [
+      "失败的交易也消耗 gas",
+      "EIP-1559 把 baseFee 销毁,priorityFee 给验证者",
+      "L2 上的 gas 主要由 L1 calldata + L2 执行成本组成",
+      "把 gasLimit 设为 0 可以发出免费交易"
+    ],
+    correct: 3,
+    explain: "gas = 0 的交易会立即被节点拒绝。Gas 是滥用防护机制,不能为零。其余三条都正确。"
+  },
+  {
+    domain: "AI",
+    q: "Tool Use(Function Calling)在底层实际做了什么?",
+    options: [
+      "模型直接调用 Python 函数执行",
+      "模型输出 JSON 工具调用请求,程序执行后把结果回填到 messages",
+      "模型可以联网拉数据",
+      "模型读写本地文件系统"
+    ],
+    correct: 1,
+    explain: "模型本身不执行任何代码,只输出 tool_use 块带参数 JSON。执行权在你的程序,工具结果以 tool_result 回到 messages 让模型继续。"
+  },
+  {
+    domain: "Web3",
+    q: "为什么签消息(personal_sign / EIP-712)同样有可能掏空账户?",
+    options: [
+      "签消息会自动上链",
+      "钓鱼签名可以让你授权 Permit、代币 approve、订单等高风险动作",
+      "签消息会消耗 gas",
+      "签消息会泄漏私钥"
+    ],
+    correct: 1,
+    explain: "盲签(blind signing)是最大攻击面。一份 EIP-712 typed data 看似只是登录,实际可能是 Permit 授权或 OpenSea 订单。任何'只是签个名'都要逐字段读清楚。"
+  },
+  {
+    domain: "AI",
+    q: "上下文窗口(Context Window)更大,模型表现一定更好吗?",
+    options: [
+      "是的,越大越好",
+      "不一定,长上下文容易出现 'lost in the middle' 衰减",
+      "只对代码任务有效",
+      "只有微调过的模型才有效"
+    ],
+    correct: 1,
+    explain: "长上下文中模型对中间位置信息的注意力会下降。把窗口当垃圾桶塞会反而降低准确率,该精简还得精简。"
+  },
+  {
+    domain: "Web3",
+    q: "把 Agent 直接持有 EOA 私钥,主要的安全问题是什么?",
+    options: [
+      "Gas 不够付",
+      "EOA 权限是二元的,Agent 一旦被攻击可以转走全部资产",
+      "EOA 不能调用合约",
+      "EOA 不能签消息"
+    ],
+    correct: 1,
+    explain: "EOA 没有限额、白名单、过期时间,全有或全无。生产环境给 Agent 用应当走 ERC-4337 智能账户 + Session Key,把损失上限锁住。"
+  },
+  {
+    domain: "AI",
+    q: "MCP(Model Context Protocol)解决的核心问题是什么?",
+    options: [
+      "让 LLM 跑得更快",
+      "让 LLM 不再幻觉",
+      "让外部工具/数据源用统一协议被任意兼容的 LLM 客户端连接",
+      "把 LLM 部署到本地"
+    ],
+    correct: 2,
+    explain: "MCP 是 JSON-RPC 的开放协议,server 一次写好,Claude Desktop / Claude Code / 其他兼容客户端都能用。解耦工具实现与模型宿主。"
+  },
+  {
+    domain: "Web3",
+    q: "为什么「测试网跑通」不等于「主网可以上线」?",
+    options: [
+      "测试网代币没有价值,主网才有价值",
+      "测试网慢一些",
+      "主网还要面对 MEV、攻击者动机、Gas 突变、合约升级权限治理等真实世界压力",
+      "测试网没有区块浏览器"
+    ],
+    correct: 2,
+    explain: "测试网行为与主网一致只意味着逻辑上跑通。安全、经济、运维、治理压力是主网才会暴露的。把测试网当 staging 而不是 prod。"
+  }
+];
+
+const $ = sel => document.querySelector(sel);
+
+let idx = 0, score = 0, answered = false;
+const log = []; // {domain, q, chosen, correct}
+
+function render() {
+  const q = QUESTIONS[idx];
+  $("#qIndex").textContent = idx + 1;
+  $("#qTotal").textContent = QUESTIONS.length;
+  $("#score").textContent = score;
+  $("#progressBar").style.width = (idx / QUESTIONS.length * 100) + "%";
+
+  const pill = $("#domainPill");
+  pill.textContent = q.domain;
+  pill.className = "pill " + (q.domain === "AI" ? "ai" : "web3");
+
+  $("#qText").textContent = q.q;
+
+  const opts = $("#opts");
+  opts.innerHTML = "";
+  q.options.forEach((text, i) => {
+    const btn = document.createElement("button");
+    btn.className = "option";
+    btn.innerHTML = `<span class="badge">${String.fromCharCode(65 + i)}</span>${text}`;
+    btn.addEventListener("click", () => choose(i, btn));
+    opts.appendChild(btn);
+  });
+
+  $("#explain").classList.remove("show");
+  $("#explain").textContent = "";
+  $("#hint").textContent = "";
+  $("#nextBtn").disabled = true;
+  $("#nextBtn").textContent = idx === QUESTIONS.length - 1 ? "看结果 →" : "下一题 →";
+  answered = false;
+}
+
+function choose(i, btn) {
+  if (answered) return;
+  answered = true;
+  const q = QUESTIONS[idx];
+  const correct = i === q.correct;
+  log.push({ domain: q.domain, q: q.q, chosen: q.options[i], correct: q.options[q.correct], ok: correct });
+  if (correct) score++;
+  $("#score").textContent = score;
+
+  Array.from(document.querySelectorAll(".option")).forEach((el, j) => {
+    el.classList.add("disabled");
+    if (j === q.correct) el.classList.add("correct");
+    if (j === i && !correct) el.classList.add("wrong");
+  });
+
+  const ex = $("#explain");
+  ex.classList.add("show");
+  ex.innerHTML = (correct ? "<strong style='color:var(--ok)'>✓ 正确。</strong> " : "<strong style='color:var(--bad)'>✗ 错了。</strong> ") + q.explain;
+  $("#nextBtn").disabled = false;
+}
+
+function next() {
+  if (idx < QUESTIONS.length - 1) {
+    idx++;
+    render();
+  } else {
+    finish();
+  }
+}
+
+function finish() {
+  $("#progressBar").style.width = "100%";
+  const panel = $("#quizPanel");
+  const pct = Math.round(score / QUESTIONS.length * 100);
+  let band;
+  if (pct === 100) band = "🎉 满分,Week 1 的概念你已经穿透了。";
+  else if (pct >= 80) band = "👍 很扎实,可以开始动手写代码 + 上 Sepolia 测试网了。";
+  else if (pct >= 50) band = "📚 还需要把错题对应的卡片再读两遍。";
+  else band = "🌱 别急,概念卡片重读一遍,Week 1 的目标就是建立共同语言。";
+
+  const rows = log.map((r,i) => {
+    return `<tr>
+      <td>${i+1}</td>
+      <td><span class="pill ${r.domain==='AI'?'ai':'web3'}">${r.domain}</span></td>
+      <td>${r.q}</td>
+      <td class="${r.ok?'ok':'bad'}">${r.ok?'✓':'✗'} ${r.ok?'':'你选: '+r.chosen+'<br/>正解: '+r.correct}</td>
+    </tr>`;
+  }).join("");
+
+  panel.innerHTML = `
+    <div class="result">
+      <div class="sub">你的得分</div>
+      <div class="big">${score} / ${QUESTIONS.length}</div>
+      <h2>${pct}%</h2>
+      <p style="color:var(--muted);max-width:520px;margin:8px auto 0">${band}</p>
+      <table>${rows}</table>
+      <button class="primary" id="restart">再来一次 ↻</button>
+    </div>
+  `;
+  $("#restart").addEventListener("click", () => location.reload());
+}
+
+$("#nextBtn").addEventListener("click", next);
+render();
+</script>
+</body>
+</html>

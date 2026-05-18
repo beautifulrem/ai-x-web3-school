@@ -1,0 +1,11 @@
+No files changed, compilation skipped
+
+Ran 5 tests for test/HelloWeek1.t.sol:HelloWeek1Test
+[PASS] testAnyoneCanGreet() (gas: 47340)
+[PASS] testEmptyGreetingReverts() (gas: 11029)
+[PASS] testFuzz_GreetIncrementsCount(string,string) (runs: 256, μ: 79614, ~: 73263)
+[PASS] testInitialState() (gas: 17883)
+[PASS] testOnlyDeployerCanReset() (gas: 22044)
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 18.02ms (16.80ms CPU time)
+
+Ran 1 test suite in 107.75ms (18.02ms CPU time): 5 tests passed, 0 failed, 0 skipped (5 total tests)

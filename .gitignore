@@ -1,6 +1,7 @@
 # Secrets / sensitive
 .env
 .env.*
+!.env.example
 *.key
 *.pem
 **/private_key*

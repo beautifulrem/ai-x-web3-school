@@ -1,0 +1,58 @@
+%% AI × Web3 最小交叉流程图
+%% 五个角色 + 五条约束(人工确认/日志/失败回滚/可观测/最小权限)
+flowchart TB
+    subgraph PLAN["① 计划层 (AI 主导)"]
+        direction TB
+        U["👤 用户意图<br/>(自然语言)"] --> A1["🤖 Agent 解析任务<br/>(LLM + System Prompt)"]
+        A1 --> A2["📋 生成执行计划<br/>(step + tool + 风险标签)"]
+    end
+
+    subgraph REVIEW["② 复核层 (人 + 规则)"]
+        direction TB
+        A2 --> G1{"🛡️ Guardrails<br/>预检"}
+        G1 -- "高风险<br/>(写入 / 转账 / 授权)" --> H["✋ 人工 Review<br/>(读懂 calldata、限额)"]
+        G1 -- "低风险<br/>(查询 / 读链)" --> EXEC
+        H -- 拒绝 --> ABORT["🛑 中止 + 记录<br/>(reason 进日志)"]
+        H -- 批准 --> EXEC
+    end
+
+    subgraph EXEC["③ 执行层 (链 + 工具)"]
+        direction TB
+        T1["🔑 Session Key / 智能账户<br/>(限额 + 白名单合约)"] --> T2["📡 签名 + 广播<br/>(EIP-1559 tx)"]
+        T2 --> T3["⛓️ Mempool → 区块确认<br/>(Sepolia / L2)"]
+    end
+
+    subgraph VERIFY["④ 验证层 (链上 + 链下)"]
+        direction TB
+        T3 --> V1["🔍 区块浏览器<br/>(tx hash / events / state)"]
+        V1 --> V2["📑 比对预期<br/>(回执 status / logs / 余额)"]
+        V2 -- 一致 --> OK["✅ 完成<br/>(产物入 repo)"]
+        V2 -- 不一致 --> FAIL["⚠️ 失败回滚<br/>(状态记录 + 人工介入)"]
+    end
+
+    subgraph OBS["⑤ 可观测层 (横切)"]
+        direction LR
+        L1["📝 Trace 日志"]
+        L2["🚨 告警"]
+        L3["📊 指标 (成功率 / gas / 延迟)"]
+    end
+
+    REVIEW -.记录每步.-> L1
+    EXEC -.tx 全程.-> L1
+    VERIFY -.结果与差异.-> L1
+    L1 --> L3
+    FAIL --> L2
+
+    classDef plan   fill:#1e3a8a,stroke:#3b82f6,color:#fff;
+    classDef review fill:#7c2d12,stroke:#f97316,color:#fff;
+    classDef exec   fill:#064e3b,stroke:#10b981,color:#fff;
+    classDef verify fill:#581c87,stroke:#a855f7,color:#fff;
+    classDef obs    fill:#374151,stroke:#9ca3af,color:#fff;
+    classDef bad    fill:#7f1d1d,stroke:#ef4444,color:#fff;
+
+    class U,A1,A2 plan;
+    class G1,H review;
+    class T1,T2,T3 exec;
+    class V1,V2,OK verify;
+    class L1,L2,L3 obs;
+    class ABORT,FAIL bad;
