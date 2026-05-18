@@ -1,0 +1,38 @@
+# Secrets / sensitive
+.env
+.env.*
+*.key
+*.pem
+**/private_key*
+**/mnemonic*
+**/keystore*
+**/wallet.json
+
+# Foundry / forge
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+contracts/lib/
+
+# Node / pnpm
+node_modules/
+pnpm-lock.yaml
+package-lock.yaml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# macOS / editor noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Build / temp
+dist/
+build/
+tmp/
+*.log
