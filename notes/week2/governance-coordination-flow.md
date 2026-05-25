@@ -10,34 +10,13 @@
 
 ### 参与方
 
-```
-┌──────────────────────────────────────────────┐
-│  用户 (Owner)                                  │
-│  • 资金所有者                                   │
-│  • 设定总策略 + 预算                             │
-│  • 拥有最终否决权                                │
-└───────────────────┬──────────────────────────┘
-                    │ 委托
-                    ▼
-┌──────────────────────────────────────────────┐
-│  Orchestrator Agent                            │
-│  • 接收用户策略意图                              │
-│  • 分解任务并分配给子 Agent                       │
-│  • 汇总结果并决定最终执行方案                      │
-│  • 拥有 Session Key: 可调用子 Agent              │
-│  • 不直接操作 DeFi 协议                          │
-└───────────────────┬──────────────────────────┘
-                    │ 分配任务
-       ┌────────────┼────────────┐
-       ▼            ▼            ▼
-┌────────────┐ ┌────────────┐ ┌────────────┐
-│ Aave Agent │ │ Compound   │ │ Uniswap LP │
-│            │ │ Agent      │ │ Agent      │
-│ • 查询 APY │ │ • 查询 APY │ │ • 查询 pool│
-│ • 供应/赎回│ │ • 供应/赎回│ │ • 添加/移除│
-│ • 仅限 Aave│ │ • 仅限 Comp│ │   流动性   │
-│   合约交互 │ │   合约交互 │ │ • 仅限 Uni │
-└────────────┘ └────────────┘ └────────────┘
+```mermaid
+flowchart TD
+    User["用户 (Owner)\n• 资金所有者\n• 设定总策略 + 预算\n• 拥有最终否决权"]
+    User -- "委托" --> Orch["Orchestrator Agent\n• 接收用户策略意图\n• 分解任务并分配给子 Agent\n• 汇总结果并决定最终执行方案\n• 拥有 Session Key: 可调用子 Agent\n• 不直接操作 DeFi 协议"]
+    Orch -- "分配任务" --> Aave["Aave Agent\n• 查询 APY\n• 供应/赎回\n• 仅限 Aave 合约交互"]
+    Orch -- "分配任务" --> Comp["Compound Agent\n• 查询 APY\n• 供应/赎回\n• 仅限 Comp 合约交互"]
+    Orch -- "分配任务" --> Uni["Uniswap LP Agent\n• 查询 pool\n• 添加/移除流动性\n• 仅限 Uni 合约交互"]
 ```
 
 ---
@@ -46,149 +25,55 @@
 
 ### Phase 1: 任务分配
 
-```
-用户下发策略:
-  "将 1000 USDC 分配到最优收益协议，单协议最多 40%，
-   每日检查一次，收益率差 > 1% 时触发再平衡"
-         │
-         ▼
-Orchestrator Agent 解析意图:
-  ├─ 总金额: 1000 USDC
-  ├─ 单协议上限: 400 USDC (40%)
-  ├─ 检查频率: 每日
-  ├─ 再平衡阈值: 1% APY 差异
-  └─ 范围: Aave, Compound, Uniswap LP
-         │
-         ▼
-Orchestrator 生成子任务:
-  ┌──────────────────────────────────────────────┐
-  │ Task 1 (→ Aave Agent)                        │
-  │   action: query_apy                          │
-  │   params: { asset: "USDC", market: "v3" }    │
-  │   deadline: 5 min                            │
-  │   reward: 0.01 USDC                          │
-  └──────────────────────────────────────────────┘
-  ┌──────────────────────────────────────────────┐
-  │ Task 2 (→ Compound Agent)                    │
-  │   action: query_apy                          │
-  │   params: { asset: "USDC", market: "v3" }    │
-  │   deadline: 5 min                            │
-  │   reward: 0.01 USDC                          │
-  └──────────────────────────────────────────────┘
-  ┌──────────────────────────────────────────────┐
-  │ Task 3 (→ Uniswap LP Agent)                  │
-  │   action: query_pool_apy                     │
-  │   params: { pair: "USDC/WETH", fee: 500 }   │
-  │   deadline: 5 min                            │
-  │   reward: 0.01 USDC                          │
-  └──────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["用户下发策略:\n将 1000 USDC 分配到最优收益协议\n单协议最多 40%，每日检查一次\n收益率差 > 1% 时触发再平衡"]
+    A --> B["Orchestrator Agent 解析意图:\n总金额: 1000 USDC\n单协议上限: 400 USDC (40%)\n检查频率: 每日\n再平衡阈值: 1% APY 差异\n范围: Aave, Compound, Uniswap LP"]
+    B --> T1["Task 1 → Aave Agent\naction: query_apy\nparams: USDC, v3\ndeadline: 5 min\nreward: 0.01 USDC"]
+    B --> T2["Task 2 → Compound Agent\naction: query_apy\nparams: USDC, v3\ndeadline: 5 min\nreward: 0.01 USDC"]
+    B --> T3["Task 3 → Uniswap LP Agent\naction: query_pool_apy\nparams: USDC/WETH, fee 500\ndeadline: 5 min\nreward: 0.01 USDC"]
 ```
 
 ### Phase 2: 并行执行 + 结果汇总
 
-```
-并行执行 (A2A protocol):
-
-Aave Agent ────────→ 查询链上 APY ────→ 返回: 3.2% APY
-                                              │
-Compound Agent ────→ 查询链上 APY ────→ 返回: 2.8% APY
-                                              │
-Uniswap LP Agent ──→ 查询 pool 状态 ──→ 返回: 5.1% APY (含 IL 风险)
-                                              │
-                                              ▼
-                                     Orchestrator 汇总:
-                                     ├─ Aave: 3.2% (低风险)
-                                     ├─ Compound: 2.8% (低风险)
-                                     └─ Uniswap: 5.1% (中风险, IL)
+```mermaid
+flowchart LR
+    A1["Aave Agent"] --> Q1["查询链上 APY"] --> R1["3.2% APY"]
+    A2["Compound Agent"] --> Q2["查询链上 APY"] --> R2["2.8% APY"]
+    A3["Uniswap LP Agent"] --> Q3["查询 pool 状态"] --> R3["5.1% APY\n(含 IL 风险)"]
+    R1 --> SUM["Orchestrator 汇总:\nAave: 3.2% (低风险)\nCompound: 2.8% (低风险)\nUniswap: 5.1% (中风险, IL)"]
+    R2 --> SUM
+    R3 --> SUM
 ```
 
 ### Phase 3: 决策 + 权限委托
 
-```
-Orchestrator 生成分配方案:
-  ├─ Aave:     400 USDC (40%) — 触及上限，收益率最优的低风险选项
-  ├─ Uniswap:  400 USDC (40%) — 触及上限，收益率最高但有 IL
-  └─ Compound: 200 USDC (20%) — 剩余资金
-         │
-         ▼
-┌────────────────────────────────────────┐
-│ 风险检查 (Orchestrator 内部)             │
-│                                        │
-│ ✓ 单协议 ≤ 40%                          │
-│ ✓ 总额 = 1000 USDC                     │
-│ ✓ 所有协议在白名单内                      │
-│ ✗ Uniswap LP 有 IL 风险                 │
-│   → 标记为"需用户确认"                    │
-└────────────────────────────────────────┘
-         │
-         ▼
-通知用户确认:
-  "建议分配: Aave 400 / Uniswap LP 400 / Compound 200
-   注意: Uniswap LP 有 impermanent loss 风险
-   确认执行？ [Y/N]"
-         │
-    用户确认 Y
-         │
-         ▼
-Orchestrator 向子 Agent 委托执行权限:
-  ┌───────────────────────────────────────────┐
-  │ Delegation (链上 Session Key 二级委托)       │
-  │                                           │
-  │ Orchestrator 的 Session Key               │
-  │   └─ 子委托给 Aave Agent:                  │
-  │       target: Aave V3 Pool                │
-  │       method: supply(USDC, 400e6)         │
-  │       one-time: true                      │
-  │       deadline: 1 hour                    │
-  │                                           │
-  │   └─ 子委托给 Compound Agent:              │
-  │       target: Compound V3 Comet           │
-  │       method: supply(USDC, 200e6)         │
-  │       one-time: true                      │
-  │       deadline: 1 hour                    │
-  │                                           │
-  │   └─ 子委托给 Uniswap LP Agent:            │
-  │       target: NonfungiblePositionManager   │
-  │       method: mint(...)                   │
-  │       max_value: 400 USDC                 │
-  │       one-time: true                      │
-  │       deadline: 1 hour                    │
-  └───────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Orchestrator 生成分配方案:\nAave: 400 USDC (40%)\nUniswap: 400 USDC (40%)\nCompound: 200 USDC (20%)"]
+    A --> B["风险检查 (Orchestrator 内部)\n✓ 单协议 ≤ 40%\n✓ 总额 = 1000 USDC\n✓ 所有协议在白名单内\n✗ Uniswap LP 有 IL 风险 → 需用户确认"]
+    B --> C["通知用户确认:\n建议分配: Aave 400 / Uniswap LP 400 / Compound 200\n注意: Uniswap LP 有 IL 风险"]
+    C --> D{"用户确认？"}
+    D -- "Y" --> E["Orchestrator 委托执行权限\n(链上 Session Key 二级委托)"]
+    E --> F["→ Aave Agent\ntarget: Aave V3 Pool\nmethod: supply(USDC, 400e6)\none-time, deadline: 1h"]
+    E --> G["→ Compound Agent\ntarget: Compound V3 Comet\nmethod: supply(USDC, 200e6)\none-time, deadline: 1h"]
+    E --> H["→ Uniswap LP Agent\ntarget: NonfungiblePositionManager\nmethod: mint(...)\nmax_value: 400 USDC\none-time, deadline: 1h"]
 ```
 
 ### Phase 4: 结果验证
 
-```
-各子 Agent 执行完成后:
+```mermaid
+flowchart TD
+    A1["Aave Agent\ntx_hash_1: supply 400 USDC ✓\nproof: aToken balance += 400"]
+    A2["Compound Agent\ntx_hash_2: supply 200 USDC ✓\nproof: cToken balance += 200"]
+    A3["Uniswap LP Agent\ntx_hash_3: mint LP position ✓\nproof: NFT tokenId = 12345\nactual: 400 USDC + 0.14 WETH"]
 
-Aave Agent ────→ tx_hash_1: supply 400 USDC ✓
-                 proof: aToken balance += 400
-                      │
-Compound Agent ─→ tx_hash_2: supply 200 USDC ✓
-                 proof: cToken balance += 200
-                      │
-Uniswap LP Agent → tx_hash_3: mint LP position ✓
-                 proof: NFT tokenId = 12345
-                 actual_amounts: 400 USDC + 0.14 WETH
-                      │
-                      ▼
-Orchestrator 验证:
-  ┌────────────────────────────────────────┐
-  │ Verification Checklist                  │
-  │                                        │
-  │ ✓ tx_hash_1 on-chain confirmed         │
-  │ ✓ aToken balance matches expected      │
-  │ ✓ tx_hash_2 on-chain confirmed         │
-  │ ✓ cToken balance matches expected      │
-  │ ✓ tx_hash_3 on-chain confirmed         │
-  │ ✓ LP NFT owned by Smart Account        │
-  │ ✓ total deployed = 1000 USDC           │
-  │ ✓ no unexpected approvals granted      │
-  │                                        │
-  │ Result: ALL PASS                       │
-  │ 写入执行日志                              │
-  │ 子 Agent 的 one-time Session Key 自动失效 │
-  └────────────────────────────────────────┘
+    A1 --> V["Orchestrator 验证"]
+    A2 --> V
+    A3 --> V
+
+    V --> CK["Verification Checklist\n✓ tx_hash_1 on-chain confirmed\n✓ aToken balance matches expected\n✓ tx_hash_2 on-chain confirmed\n✓ cToken balance matches expected\n✓ tx_hash_3 on-chain confirmed\n✓ LP NFT owned by Smart Account\n✓ total deployed = 1000 USDC\n✓ no unexpected approvals granted"]
+    CK --> R["Result: ALL PASS\n写入执行日志\n子 Agent 的 one-time Session Key 自动失效"]
 ```
 
 ---
@@ -199,46 +84,20 @@ Orchestrator 验证:
 
 ### 争议类型与处理
 
-```
-争议触发
-    │
-    ▼
-┌─────────────────────────────────┐
-│ 类型判定                          │
-└────────┬────────────────────────┘
-         │
-    ┌────┴────────┬──────────────┬──────────────┐
-    ▼             ▼              ▼              ▼
-执行失败       结果偏差        超时未完成      权限越界
-(tx revert)   (滑点过大)     (deadline 过期)  (调用非白名单)
-    │             │              │              │
-    ▼             ▼              ▼              ▼
-自动处理:      阈值判定:       自动处理:       紧急处理:
-• 链上 revert   • 偏差<2%:      • 任务标记      • 立即撤销
-  无状态变更     记录但接受      failed          Session Key
-• 不收取        • 偏差 2-5%:    • 通知          • 冻结相关
-  Agent fee     降低 Agent      Orchestrator    Agent
-• 重试 or       信誉分          重新分配        • 全面审计
-  降级人工      • 偏差>5%:      • 不收取         所有操作
-                触发争议        Agent fee       • 通知用户
-                仲裁
-                    │
-                    ▼
-         ┌──────────────────┐
-         │  链上争议仲裁       │
-         │  (Kleros / UMA)   │
-         │                   │
-         │  证据:             │
-         │  • 原始任务定义     │
-         │  • Agent 的执行 tx │
-         │  • 链上状态变化     │
-         │  • 预期 vs 实际    │
-         │                   │
-         │  仲裁结果:         │
-         │  • 退款 / 扣罚     │
-         │  • 信誉扣分        │
-         │  • 黑名单          │
-         └──────────────────┘
+```mermaid
+flowchart TD
+    A["争议触发"] --> B{"类型判定"}
+
+    B -- "执行失败\n(tx revert)" --> C["自动处理:\n• 链上 revert 无状态变更\n• 不收取 Agent fee\n• 重试 or 降级人工"]
+    B -- "结果偏差\n(滑点过大)" --> D{"阈值判定"}
+    B -- "超时未完成\n(deadline 过期)" --> E["自动处理:\n• 任务标记 failed\n• 通知 Orchestrator 重新分配\n• 不收取 Agent fee"]
+    B -- "权限越界\n(调用非白名单)" --> F["紧急处理:\n• 立即撤销 Session Key\n• 冻结相关 Agent\n• 全面审计所有操作\n• 通知用户"]
+
+    D -- "偏差 < 2%" --> G["记录但接受"]
+    D -- "偏差 2-5%" --> H["降低 Agent 信誉分"]
+    D -- "偏差 > 5%" --> I["触发争议仲裁"]
+
+    I --> J["链上争议仲裁 (Kleros / UMA)\n证据: 原始任务定义、Agent 执行 tx、\n链上状态变化、预期 vs 实际\n仲裁结果: 退款/扣罚、信誉扣分、黑名单"]
 ```
 
 ### 责任分层
@@ -260,36 +119,13 @@ Orchestrator 验证:
 
 ### 二级 Session Key 委托模型
 
-```
-用户 (Safe Owner)
-    │
-    │ 签发 Session Key A (给 Orchestrator)
-    │   scope: 可调用子 Agent 注册合约
-    │   budget: 1000 USDC/day
-    │   duration: 7 days
-    │
-    ▼
-Orchestrator Agent (持有 Session Key A)
-    │
-    │ 通过链上 Delegation Registry 注册子委托
-    │
-    ├─ Sub-Session Key B1 (给 Aave Agent)
-    │   scope: 仅 Aave V3 Pool.supply()
-    │   budget: 400 USDC
-    │   duration: 1 hour
-    │   one-time: true
-    │
-    ├─ Sub-Session Key B2 (给 Compound Agent)
-    │   scope: 仅 Compound Comet.supply()
-    │   budget: 200 USDC
-    │   duration: 1 hour
-    │   one-time: true
-    │
-    └─ Sub-Session Key B3 (给 Uniswap LP Agent)
-        scope: 仅 PositionManager.mint()
-        budget: 400 USDC
-        duration: 1 hour
-        one-time: true
+```mermaid
+flowchart TD
+    User["用户 (Safe Owner)"] -- "签发 Session Key A\nscope: 可调用子 Agent 注册合约\nbudget: 1000 USDC/day\nduration: 7 days" --> Orch["Orchestrator Agent\n(持有 Session Key A)"]
+
+    Orch -- "通过链上 Delegation Registry" --> B1["Sub-Session Key B1 → Aave Agent\nscope: 仅 Aave V3 Pool.supply()\nbudget: 400 USDC\nduration: 1 hour, one-time"]
+    Orch --> B2["Sub-Session Key B2 → Compound Agent\nscope: 仅 Compound Comet.supply()\nbudget: 200 USDC\nduration: 1 hour, one-time"]
+    Orch --> B3["Sub-Session Key B3 → Uniswap LP Agent\nscope: 仅 PositionManager.mint()\nbudget: 400 USDC\nduration: 1 hour, one-time"]
 ```
 
 **链上约束保证**：
@@ -338,14 +174,15 @@ contract DelegationRegistry {
 
 **核心洞察**：Agent 协作不是"DAO 投票"，而是"受约束的自动执行 + 异常时人工介入"。治理的角色从"每次决策都参与"变成"设定规则 + 监督 + 争议处理"。
 
-```
-传统 DAO 治理:
-  提案 → 投票 → 执行
-  (每次决策都走全流程)
+```mermaid
+flowchart LR
+    subgraph Traditional["传统 DAO 治理 (每次决策都走全流程)"]
+        T1["提案"] --> T2["投票"] --> T3["执行"]
+    end
 
-Agent 协作治理:
-  规则设定 → 自动执行 → 异常触发人工
-  (常态自动，异常才治理)
+    subgraph Agent["Agent 协作治理 (常态自动，异常才治理)"]
+        A1["规则设定"] --> A2["自动执行"] --> A3["异常触发人工"]
+    end
 ```
 
 ### 5.3 结合点
@@ -361,82 +198,59 @@ Agent 协作治理:
 
 ### 5.4 一个具体结合示例
 
-```
-场景: DAO Treasury 管理的多 Agent yield 策略
+```mermaid
+flowchart TD
+    DAO["DAO (Governor + Safe)"]
 
-┌─────────────────────────────────────────────────┐
-│  DAO (Governor + Safe)                            │
-│                                                   │
-│  提案类型:                                         │
-│  ├─ "增加 Aave Agent 的单日限额到 500 USDC"        │
-│  │   → 投票通过 → 更新链上 Session Key Policy      │
-│  │                                                │
-│  ├─ "注册新的 Morpho Agent 到协作网络"              │
-│  │   → 投票通过 → Agent Registry 添加新条目         │
-│  │   → 签发 Session Key 给新 Agent                 │
-│  │                                                │
-│  ├─ "向 Paymaster 补充 0.5 ETH deposit"            │
-│  │   → 投票通过 → Safe 执行 ETH 转账到 Paymaster   │
-│  │                                                │
-│  └─ "暂停 Uniswap LP Agent（IL 损失过大）"          │
-│      → 投票通过 → 撤销 Session Key                  │
-│      → 触发 Orchestrator 重新分配资金               │
-│                                                   │
-│  日常运行: Agent 自动执行，无需投票                    │
-│  异常触发: 偏差 > 5% → 自动暂停 → 提案讨论           │
-│                                                   │
-└─────────────────────────────────────────────────┘
+    DAO --> P1["提案: 增加 Aave Agent 单日限额到 500 USDC\n→ 投票通过 → 更新链上 Session Key Policy"]
+    DAO --> P2["提案: 注册新的 Morpho Agent 到协作网络\n→ 投票通过 → Agent Registry 添加新条目\n→ 签发 Session Key 给新 Agent"]
+    DAO --> P3["提案: 向 Paymaster 补充 0.5 ETH deposit\n→ 投票通过 → Safe 执行 ETH 转账到 Paymaster"]
+    DAO --> P4["提案: 暂停 Uniswap LP Agent (IL 损失过大)\n→ 投票通过 → 撤销 Session Key\n→ 触发 Orchestrator 重新分配资金"]
+    DAO --> NORMAL["日常运行: Agent 自动执行，无需投票"]
+    DAO --> ALERT["异常触发: 偏差 > 5% → 自动暂停 → 提案讨论"]
 ```
 
 ---
 
 ## 6. 完整协作流程图
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        治理层 (DAO)                                │
-│   ┌─────────┐   ┌────────────┐   ┌────────────┐                 │
-│   │规则设定   │   │Agent 注册   │   │预算分配     │                 │
-│   │(Governor)│   │(Registry)  │   │(Treasury)  │                 │
-│   └────┬────┘   └─────┬──────┘   └─────┬──────┘                 │
-│        └──────────────┼────────────────┘                         │
-│                       │                                          │
-├───────────────────────┼──────────────────────────────────────────┤
-│                       ▼         策略层 (Orchestrator)             │
-│             ┌─────────────────────┐                              │
-│             │  Orchestrator Agent  │                              │
-│             │  ├─ 解析用户意图      │                              │
-│             │  ├─ 分解任务         │                              │
-│             │  ├─ 分配子 Agent     │                              │
-│             │  ├─ 汇总 + 验证     │                              │
-│             │  └─ 异常上报        │                              │
-│             └───────┬─────────────┘                              │
-│                     │                                            │
-├─────────────────────┼────────────────────────────────────────────┤
-│                     ▼         执行层 (Sub-Agents)                 │
-│    ┌──────────┐ ┌──────────┐ ┌──────────┐                       │
-│    │Aave Agent│ │Comp Agent│ │Uni Agent │  ← 各持有限定 Session Key│
-│    └────┬─────┘ └────┬─────┘ └────┬─────┘                       │
-│         │            │            │                              │
-├─────────┼────────────┼────────────┼──────────────────────────────┤
-│         ▼            ▼            ▼     链上执行层                 │
-│    ┌──────────────────────────────────────────┐                  │
-│    │  EntryPoint                               │                  │
-│    │  ├─ validateUserOp (Session Key 验证)      │                  │
-│    │  ├─ validatePaymaster                     │                  │
-│    │  └─ execute (supply / swap / mint)        │                  │
-│    └──────────────────────────────────────────┘                  │
-│                                                                  │
-├──────────────────────────────────────────────────────────────────┤
-│                        监控层 (横切)                               │
-│    ┌──────────────────────────────────────────┐                  │
-│    │  • 执行日志记录                             │                  │
-│    │  • 偏差检测 (实际 vs 预期)                   │                  │
-│    │  • 异常告警 → 用户 / DAO                    │                  │
-│    │  • 信誉更新 (per Agent)                    │                  │
-│    └──────────────────────────────────────────┘                  │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph GOV["治理层 (DAO)"]
+        G1["规则设定\n(Governor)"]
+        G2["Agent 注册\n(Registry)"]
+        G3["预算分配\n(Treasury)"]
+    end
+
+    subgraph STRATEGY["策略层 (Orchestrator)"]
+        ORCH["Orchestrator Agent\n• 解析用户意图\n• 分解任务\n• 分配子 Agent\n• 汇总 + 验证\n• 异常上报"]
+    end
+
+    subgraph EXEC["执行层 (Sub-Agents)"]
+        SA1["Aave Agent"]
+        SA2["Comp Agent"]
+        SA3["Uni Agent"]
+    end
+
+    subgraph CHAIN["链上执行层"]
+        EP["EntryPoint\n• validateUserOp (Session Key 验证)\n• validatePaymaster\n• execute (supply / swap / mint)"]
+    end
+
+    subgraph MONITOR["监控层 (横切)"]
+        MON["• 执行日志记录\n• 偏差检测 (实际 vs 预期)\n• 异常告警 → 用户 / DAO\n• 信誉更新 (per Agent)"]
+    end
+
+    G1 --> ORCH
+    G2 --> ORCH
+    G3 --> ORCH
+    ORCH --> SA1
+    ORCH --> SA2
+    ORCH --> SA3
+    SA1 --> EP
+    SA2 --> EP
+    SA3 --> EP
+    EP --> MON
+    MON --> GOV
 ```
 
 ---
@@ -458,24 +272,11 @@ Agent 协作治理:
 
 ### 产品演进路径
 
-```
-Phase 1 (现在): Conservative / Rule-driven
-  ├─ Orchestrator 是固定逻辑，不用 LLM
-  ├─ 子 Agent 只执行预定义操作
-  ├─ Session Key 精确到 method + params
-  └─ 任何偏差 → 暂停 + 人工
-
-Phase 2 (3-6个月): Gradual Opening
-  ├─ Orchestrator 用 LLM 做策略建议，但需人工确认
-  ├─ 子 Agent 可在协议级白名单内自选方法
-  ├─ Session Key 放宽到协议级别
-  └─ 小额偏差自动处理，大额偏差 → 人工
-
-Phase 3 (6-12个月): Intent-driven
-  ├─ Orchestrator 自主拆解意图为任务
-  ├─ 子 Agent 在预算范围内自主决策
-  ├─ Session Key 基于信誉动态调整
-  └─ 人工只在异常时介入
+```mermaid
+flowchart TD
+    P1["Phase 1 (现在): Conservative / Rule-driven\n• Orchestrator 是固定逻辑，不用 LLM\n• 子 Agent 只执行预定义操作\n• Session Key 精确到 method + params\n• 任何偏差 → 暂停 + 人工"]
+    P1 --> P2["Phase 2 (3-6个月): Gradual Opening\n• Orchestrator 用 LLM 做策略建议，但需人工确认\n• 子 Agent 可在协议级白名单内自选方法\n• Session Key 放宽到协议级别\n• 小额偏差自动处理，大额偏差 → 人工"]
+    P2 --> P3["Phase 3 (6-12个月): Intent-driven\n• Orchestrator 自主拆解意图为任务\n• 子 Agent 在预算范围内自主决策\n• Session Key 基于信誉动态调整\n• 人工只在异常时介入"]
 ```
 
 每个 Phase 的过渡条件：上一个 Phase 积累了足够的链上执行记录 + 信誉数据，证明 Agent 在受限范围内是可靠的。这就是 5/24 的"自增强信任循环"在协作场景中的应用。

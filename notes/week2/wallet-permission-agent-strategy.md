@@ -6,76 +6,25 @@
 
 ## 1. Agent 发起链上动作的执行流程图
 
-```
-用户意图(自然语言)
-    │
-    ▼
-┌─────────────────────┐
-│  LLM 解析意图        │  ← Agent 自动
-│  生成 calldata       │
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│  Guardrails 校验     │  ← Agent 自动
-│  • 目标合约在白名单？ │
-│  • 方法 selector 允许？│
-│  • value ≤ 单笔限额？ │
-│  • 日累计 ≤ 日限？    │
-└─────────┬───────────┘
-          │
-     ┌────┴────┐
-     │ 通过？   │
-     └────┬────┘
-    YES   │   NO → 拒绝执行，日志记录，通知用户
-          ▼
-┌─────────────────────┐
-│  金额 > 人工阈值？    │
-└─────────┬───────────┘
-    YES   │   NO
-    │     │
-    ▼     ▼
-┌────────┐ ┌──────────────────┐
-│人工确认 │ │ 构造 UserOperation │ ← Agent 自动
-│(展示完整│ └────────┬─────────┘
-│calldata│          │
-│+风险评估)│          ▼
-└───┬────┘ ┌──────────────────┐
-    │      │ Bundler 模拟执行   │ ← 链上自动
-    │      │ (eth_estimateGas) │
-    ▼      └────────┬─────────┘
-  确认？            │
-  YES → ─────┐     │
-  NO → 取消  │     │
-             ▼     ▼
-      ┌──────────────────┐
-      │ EntryPoint        │ ← 链上自动
-      │ handleOps()       │
-      │ • validateUserOp  │
-      │ • validatePaymaster│
-      │ • execute         │
-      └────────┬─────────┘
-               │
-          ┌────┴────┐
-          │ 成功？   │
-          └────┬────┘
-     SUCCESS  │   REVERT
-         │    │      │
-         ▼    │      ▼
-   ┌─────────┐│ ┌──────────┐
-   │状态变更  ││ │回滚，无状态│
-   │链上确认  ││ │泄漏       │
-   └─────────┘│ │日志记录    │
-              │ │告警通知    │
-              │ └──────────┘
-              ▼
-      ┌──────────────────┐
-      │ 日志落盘           │ ← Agent 自动
-      │ • tx hash         │
-      │ • gas 消耗         │
-      │ • 执行结果          │
-      │ • 累计预算消耗       │
-      └──────────────────┘
+```mermaid
+flowchart TD
+    A["用户意图(自然语言)"] --> B["LLM 解析意图 + 生成 calldata\n← Agent 自动"]
+    B --> C["Guardrails 校验 ← Agent 自动\n• 目标合约在白名单？\n• 方法 selector 允许？\n• value ≤ 单笔限额？\n• 日累计 ≤ 日限？"]
+    C --> D{"通过？"}
+    D -- NO --> E["拒绝执行，日志记录，通知用户"]
+    D -- YES --> F{"金额 > 人工阈值？"}
+    F -- YES --> G["人工确认\n展示完整 calldata + 风险评估"]
+    F -- NO --> H["构造 UserOperation ← Agent 自动"]
+    G --> I{"确认？"}
+    I -- NO --> J["取消"]
+    I -- YES --> H
+    H --> K["Bundler 模拟执行 ← 链上自动\neth_estimateGas"]
+    K --> L["EntryPoint ← 链上自动\nhandleOps()\n• validateUserOp\n• validatePaymaster\n• execute"]
+    L --> M{"成功？"}
+    M -- SUCCESS --> N["状态变更\n链上确认"]
+    M -- REVERT --> O["回滚，无状态泄漏\n日志记录，告警通知"]
+    N --> P["日志落盘 ← Agent 自动\n• tx hash\n• gas 消耗\n• 执行结果\n• 累计预算消耗"]
+    O --> P
 ```
 
 **自动化步骤**：意图解析、calldata 生成、guardrails 校验、UserOp 构造、Bundler 模拟、EntryPoint 验证执行、日志记录
@@ -190,13 +139,13 @@ Safe 作为多签钱包，适合做 Agent 的上级管控层：
 
 **三者的协同关系**：
 
-```
-Safe (金库层)
- └─ Transaction Guard: 控制哪些 Module 可以执行什么
-     └─ Session Key Module (执行层)
-         └─ Policy Engine: 控制每把 Session Key 的具体权限
-             └─ ERC-4337 EntryPoint (验证层)
-                 └─ validateUserOp: 原子性最终校验
+```mermaid
+flowchart TD
+    A["Safe (金库层)"] --> B["Transaction Guard: 控制哪些 Module 可以执行什么"]
+    B --> C["Session Key Module (执行层)"]
+    C --> D["Policy Engine: 控制每把 Session Key 的具体权限"]
+    D --> E["ERC-4337 EntryPoint (验证层)"]
+    E --> F["validateUserOp: 原子性最终校验"]
 ```
 
 每一层解决不同粒度的风险：Safe 解决"谁有权管理策略"，Policy 解决"Agent 能做什么"，EntryPoint 解决"每笔操作是否合法"。三层叠加后，即使 Agent 被 prompt injection 攻击，损失上限 = Session Key 允许的最大金额，而不是整个账户。
